@@ -1,6 +1,5 @@
 package com.nttdata.bank.account.bankaccount.business.impl;
 
-import com.nttdata.bank.account.bankaccount.business.entity.AccountDto;
 import com.nttdata.bank.account.bankaccount.business.entity.ClientDto;
 import com.nttdata.bank.account.bankaccount.business.repository.AccountRepository;
 import lombok.*;
@@ -23,31 +22,25 @@ public class ValidateClient {
     @Autowired
     private ExternalService externalService;
     private static long numberOfAccounts = 0;
-    //private boolean isValidate = false;
 
-    public boolean validateTypeClient(Integer clientId){
+    public Mono<Boolean> validateTypeClient(Integer clientId){
       Mono<ClientDto> clientDto = externalService.externalFindByClientId(clientId);
 
       return clientDto
-          .map(p->{
-            if(p.getClientType().equalsIgnoreCase("P")){
-              return validateNumberOfAccountsPersonal(p.getClientId());
+          .map(cliente->{
+            if (cliente.getClientType().equalsIgnoreCase("P")){
+              return validateNumberOfAccountsPersonal(cliente.getClientId());
             } else {
-              return validateNumberOfAccountsbusiness(p.getClientId());
+              return validateNumberOfAccountsbusiness(cliente.getClientId());
             }
-          }).subscribe().isDisposed();
+          });
     }
 
     private boolean validateNumberOfAccountsPersonal(Integer clientId){
-      System.out.println("CLiente tipo Personal");
-
       accountRepository.findAll()
           .filter(p -> p.getClientId().equals(clientId))
           .count()
-          .subscribe(count->{
-            numberOfAccounts = count;
-          });
-
+          .subscribe(count-> numberOfAccounts = count);
       return (numberOfAccounts == 0 );
     }
 
@@ -56,9 +49,7 @@ public class ValidateClient {
         .filter(p -> p.getClientId().equals(clientId))
         // falta validar el tipo de cuenta para empresarial
         .count()
-        .subscribe(count->{
-          numberOfAccounts = count;
-        });
+        .subscribe(count-> numberOfAccounts = count);
     return (numberOfAccounts == 0 );
   }
 }

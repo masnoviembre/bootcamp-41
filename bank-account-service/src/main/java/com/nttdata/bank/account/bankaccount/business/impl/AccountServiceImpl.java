@@ -39,19 +39,22 @@ public class AccountServiceImpl implements AccountService {
   @Transactional()
   public Mono<Account> save(AccountDto accountDto) {
     return accountRepository
-        .existsById(accountDto.getAccountId())
-        .flatMap((isExist -> {
-          if (!isExist) {
-            if (validateClient.validateTypeClient(accountDto.getClientId())) {
+           .existsById(accountDto.getClientId())
+           .flatMap(isExist->{
+              if (!isExist) {
+                return validateClient.validateTypeClient(accountDto.getClientId());
+              } else {
+                return Mono.just(false);
+              }
+           })
+          .flatMap(isTrue->{
+            if (isTrue) {
               return accountRepository.save(mapper.map(accountDto, Account.class));
-            } else {
-              return Mono.empty();
             }
-          } else {
             return Mono.empty();
-          }
-        }));
+          });
   }
+
   @Override
   public Mono<Account> update(AccountDto accountDto) {
     return accountRepository.findById(accountDto.getAccountId())
