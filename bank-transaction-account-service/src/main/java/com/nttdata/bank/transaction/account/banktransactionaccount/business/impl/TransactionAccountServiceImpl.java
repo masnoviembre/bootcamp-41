@@ -4,6 +4,8 @@ import com.nttdata.bank.transaction.account.banktransactionaccount.business.Tran
 import com.nttdata.bank.transaction.account.banktransactionaccount.business.repository.TransactionAccountRepository;
 import com.nttdata.bank.transaction.account.banktransactionaccount.business.entity.TransactionAccount;
 import com.nttdata.bank.transaction.account.banktransactionaccount.business.entity.TransactionAccountDto;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dozer.Mapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
+@Slf4j
+@AllArgsConstructor
 public class TransactionAccountServiceImpl implements TransactionAccountService {
 
   @Autowired
@@ -18,6 +22,9 @@ public class TransactionAccountServiceImpl implements TransactionAccountService 
 
   @Autowired
   private Mapper mapper;
+
+  @Autowired
+  private ValidateTransaction validateTransaction;
 
   @Override
   public Flux<TransactionAccount> getAll() {
@@ -28,14 +35,20 @@ public class TransactionAccountServiceImpl implements TransactionAccountService 
   @Override
   public Mono<TransactionAccount> save(TransactionAccountDto transactionAccountDto) {
     return transactionAccountRepository.existsById(transactionAccountDto.getTransactionId())
-        .flatMap((isExist -> {
+        .flatMap(isExist->{
           if (!isExist) {
+            return validateTransaction.updateBalance(transactionAccountDto);
+          } else {
+            return Mono.just(false);
+          }
+        })
+        .flatMap(isTrue->{
+          if (isTrue) {
             return transactionAccountRepository.save(mapper.map(transactionAccountDto,
                                                                 TransactionAccount.class));
-          } else {
-            return Mono.empty();
           }
-        }));
+          return Mono.empty();
+        });
   }
 
   @Override
@@ -43,7 +56,7 @@ public class TransactionAccountServiceImpl implements TransactionAccountService 
     return transactionAccountRepository.existsById(transactionAccountDto.getAccountId())
         .flatMap(isExist -> {
           if (isExist) {
-            transactionAccountRepository.deleteById(transactionAccountDto.getTransactionId());
+            this.delete(transactionAccountDto.getTransactionId());
             return this.save(transactionAccountDto);
           }
           return Mono.empty();
@@ -54,8 +67,21 @@ public class TransactionAccountServiceImpl implements TransactionAccountService 
   public Mono<Void> delete(Integer transactionAccountId) {
     return transactionAccountRepository
         .findById(transactionAccountId)
-        .flatMap(a -> transactionAccountRepository.deleteById(a.getTransactionId()))
+        .flatMap(a-> validateTransaction.revertBalance(a))
+        .flatMap(isTrue->{
+          if (isTrue) {
+            return transactionAccountRepository.deleteById(transactionAccountId);
+          }
+          return Mono.empty();
+        });
+  }
+
+  @Override
+  public Flux<TransactionAccount> getByAccountId(Integer accountId) {
+    return transactionAccountRepository.findAll()
+        .filter(p -> p.getAccountId().equals(accountId))
         .switchIfEmpty(Mono.empty());
   }
+
 
 }

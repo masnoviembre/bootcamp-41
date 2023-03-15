@@ -21,6 +21,12 @@ public class TransactionAccountController {
         .getAll();
   }
 
+  @GetMapping("/{accountId}")
+  public Flux<TransactionAccount> getByAccountId(@PathVariable("accountId") Integer accountId) {
+    return transactionAccountService
+        .getByAccountId(accountId);
+  }
+
   @PostMapping
   public Mono<TransactionAccount> save(@RequestBody TransactionAccountDto transactionAccountDto){
     return transactionAccountService

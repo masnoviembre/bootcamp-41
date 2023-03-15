@@ -15,4 +15,6 @@ public interface TransactionAccountService {
 
   Mono<Void> delete(Integer transactionAccountId);
 
+  Flux<TransactionAccount> getByAccountId(Integer accountId);
+
 }
